@@ -22,7 +22,7 @@ class RiskReport:
     """Result of a pre-trade risk check."""
     approved: bool
     reason: str
-    adjusted_size: Optional[float] = None  # if we can suggest smaller size
+    adjusted_size: Optional[float] = None
     checks_passed: list[str] = field(default_factory=list)
     checks_failed: list[str] = field(default_factory=list)
     timestamp: datetime = field(default_factory=datetime.utcnow)
@@ -38,22 +38,18 @@ class PositionSizer:
         risk_per_trade_pct: float,
         entry_price: float,
         stop_price: float,
-        max_position_pct: float = 0.10,  # hard safety cap
+        max_position_pct: float = 0.10,
     ) -> float:
-        """Return position size (in base currency units) using fixed fractional risk.
-
+        """Return position size using fixed fractional risk."""
         risk_amount = equity * risk_per_trade_pct
         risk_per_unit = abs(entry_price - stop_price)
         if risk_per_unit <= 0:
             return 0.0
         raw_size = risk_amount / risk_per_unit
-
-        # Cap at max_position_pct of equity (notional)
         max_notional = equity * max_position_pct
         max_size_by_notional = max_notional / entry_price if entry_price > 0 else 0
-
         size = min(raw_size, max_size_by_notional)
-        return max(0.0, round(size, 8))  # 8 decimals for crypto
+        return max(0.0, round(size, 8))
 
 
 class RiskManager:
@@ -64,14 +60,12 @@ class RiskManager:
         max_position_pct: float = 0.02,
         risk_per_trade_pct: float = 0.01,
         daily_loss_limit_pct: float = 0.05,
-        hard_max_exposure_pct: float = 0.10,  # cannot be overridden easily
+        hard_max_exposure_pct: float = 0.10,
     ) -> None:
         self.max_position_pct = max_position_pct
         self.risk_per_trade_pct = risk_per_trade_pct
         self.daily_loss_limit_pct = daily_loss_limit_pct
         self.hard_max_exposure_pct = hard_max_exposure_pct
-
-        # Simple in-memory daily PnL tracking (reset at midnight UTC or on demand)
         self._daily_realized_pnl: float = 0.0
         self._daily_unrealized_pnl: float = 0.0
         self._last_reset: datetime = datetime.utcnow()
@@ -90,7 +84,7 @@ class RiskManager:
         return self._daily_realized_pnl + self._daily_unrealized_pnl
 
     def check_daily_loss_limit(self, equity: float) -> bool:
-        loss = -self.current_daily_pnl  # positive if losing
+        loss = -self.current_daily_pnl
         limit = equity * self.daily_loss_limit_pct
         return loss <= limit
 
@@ -102,9 +96,7 @@ class RiskManager:
     ) -> float:
         """Recommended size for a new position using current risk settings."""
         if stop_price is None:
-            # Conservative: assume 1% adverse move if no explicit stop
             stop_price = entry_price * (1 - 0.01)
-
         return PositionSizer.fixed_fractional(
             equity=equity,
             risk_per_trade_pct=self.risk_per_trade_pct,
@@ -128,7 +120,6 @@ class RiskManager:
         checks_failed: list[str] = []
         reason_parts: list[str] = []
 
-        # 1. Daily loss circuit breaker (most important)
         if not self.check_daily_loss_limit(equity):
             checks_failed.append("daily_loss_limit")
             reason_parts.append(
@@ -143,16 +134,13 @@ class RiskManager:
             )
         checks_passed.append("daily_loss_ok")
 
-        # 2. Proposed notional vs max position
         notional = size * entry_price
         max_allowed_notional = equity * self.max_position_pct
-        if notional > max_allowed_notional * 1.05:  # 5% tolerance
+        if notional > max_allowed_notional * 1.05:
             checks_failed.append("max_position_exceeded")
             reason_parts.append(
-                f"Notional {notional:.2f} > max allowed {max_allowed_notional:.2f} "
-                f"({self.max_position_pct*100:.1f}% of equity)"
+                f"Notional {notional:.2f} > max allowed {max_allowed_notional:.2f}"
             )
-            # Suggest smaller size
             suggested = self.calculate_size(equity, entry_price, stop_price)
             return RiskReport(
                 approved=False,
@@ -163,7 +151,6 @@ class RiskManager:
             )
         checks_passed.append("position_size_ok")
 
-        # 3. Total book exposure after this trade (simple long-only for v1)
         projected_exposure = current_exposure_notional + notional
         hard_cap = equity * self.hard_max_exposure_pct
         if projected_exposure > hard_cap:
@@ -179,14 +166,12 @@ class RiskManager:
             )
         checks_passed.append("exposure_ok")
 
-        # 4. Basic sanity (size > 0, price > 0)
         if size <= 0 or entry_price <= 0:
             checks_failed.append("invalid_order_params")
             reason_parts.append("Size and entry_price must be positive")
             return RiskReport(approved=False, reason="; ".join(reason_parts), checks_failed=checks_failed)
         checks_passed.append("params_sane")
 
-        # All good
         return RiskReport(
             approved=True,
             reason="All risk checks passed",
@@ -195,7 +180,7 @@ class RiskManager:
         )
 
     def record_fill(self, pnl: float, realized: bool = True) -> None:
-        """Call after a fill to update daily PnL tracking."""
+        """Call after a fill to update daily profit and loss tracking."""
         if realized:
             self._daily_realized_pnl += pnl
         else:
