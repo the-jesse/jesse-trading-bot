@@ -71,7 +71,7 @@ class RiskManager:
         self.daily_loss_limit_pct = daily_loss_limit_pct
         self.hard_max_exposure_pct = hard_max_exposure_pct
 
-        # Simple in-memory daily P&L tracking (reset at midnight UTC or on demand)
+        # Simple in-memory daily PnL tracking (reset at midnight UTC or on demand)
         self._daily_realized_pnl: float = 0.0
         self._daily_unrealized_pnl: float = 0.0
         self._last_reset: datetime = datetime.utcnow()
@@ -195,7 +195,7 @@ class RiskManager:
         )
 
     def record_fill(self, pnl: float, realized: bool = True) -> None:
-        """Call after a fill to update daily P&L tracking."""
+        """Call after a fill to update daily PnL tracking."""
         if realized:
             self._daily_realized_pnl += pnl
         else:
