@@ -1,0 +1,81 @@
+# Jesse Trading Bot - .gitignore
+# Critical: never commit secrets, env files with keys, or large data
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+.venv
+venv/
+ENV/
+env/
+
+# IDE / editors
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Environment & secrets - NEVER COMMIT
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+secrets/
+
+# Trading bot specific
+*.log
+logs/
+state/*.json
+state/*.db
+*.csv
+output/
+backtest_results/
+paper_trades_*.json
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Jupyter
+.ipynb_checkpoints
+
+# Testing
+.coverage
+htmlcov/
+.pytest_cache/
+.tox/
+
+# Type checkers
+.mypy_cache/
+.pyre/
+
+# CCXT / exchange caches (if any)
+.ccxt_cache/
+
+# Large data or temp
+*.parquet
+*.feather
+*.h5
