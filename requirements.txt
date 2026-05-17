@@ -1,0 +1,9 @@
+ccxt>=4.0.0
+pandas>=2.0.0
+numpy>=1.24.0
+pydantic>=2.0.0
+pydantic-settings>=2.0.0
+python-dotenv>=1.0.0
+pyyaml>=6.0
+structlog>=24.0.0
+pandas-ta>=0.3.14b0  # Pure Python TA, easy install
