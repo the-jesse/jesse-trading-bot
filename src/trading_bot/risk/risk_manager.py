@@ -41,6 +41,8 @@ class PositionSizer:
         max_position_pct: float = 0.10,
     ) -> float:
         """Return position size using fixed fractional risk."""
+        if equity <= 0 or entry_price <= 0 or risk_per_trade_pct <= 0:
+            return 0.0
         risk_amount = equity * risk_per_trade_pct
         risk_per_unit = abs(entry_price - stop_price)
         if risk_per_unit <= 0:
@@ -84,6 +86,8 @@ class RiskManager:
         return self._daily_realized_pnl + self._daily_unrealized_pnl
 
     def check_daily_loss_limit(self, equity: float) -> bool:
+        if equity <= 0:
+            return False
         loss = -self.current_daily_pnl
         limit = equity * self.daily_loss_limit_pct
         return loss <= limit
@@ -119,6 +123,28 @@ class RiskManager:
         checks_passed: list[str] = []
         checks_failed: list[str] = []
         reason_parts: list[str] = []
+
+        if size <= 0 or entry_price <= 0:
+            checks_failed.append("invalid_order_params")
+            reason_parts.append("Size and entry_price must be positive")
+            return RiskReport(
+                approved=False,
+                reason="; ".join(reason_parts),
+                checks_failed=checks_failed,
+                checks_passed=checks_passed,
+            )
+        checks_passed.append("params_sane")
+
+        if equity <= 0:
+            checks_failed.append("invalid_equity")
+            reason_parts.append("Equity must be positive")
+            return RiskReport(
+                approved=False,
+                reason="; ".join(reason_parts),
+                checks_failed=checks_failed,
+                checks_passed=checks_passed,
+            )
+        checks_passed.append("equity_ok")
 
         if not self.check_daily_loss_limit(equity):
             checks_failed.append("daily_loss_limit")
@@ -165,12 +191,6 @@ class RiskManager:
                 checks_passed=checks_passed,
             )
         checks_passed.append("exposure_ok")
-
-        if size <= 0 or entry_price <= 0:
-            checks_failed.append("invalid_order_params")
-            reason_parts.append("Size and entry_price must be positive")
-            return RiskReport(approved=False, reason="; ".join(reason_parts), checks_failed=checks_failed)
-        checks_passed.append("params_sane")
 
         return RiskReport(
             approved=True,
