@@ -16,6 +16,7 @@
 > - Comply with all applicable laws, regulations, and tax requirements in your jurisdiction (Maine, US).
 > - Trading bots may be subject to specific regulations; consult professionals.
 > - Use at your own risk.
+> - **This repo refuses live order placement.** `--paper` and `PAPER_TRADING=true` are both required. There is no live executor.
 
 ## Overview
 
@@ -24,15 +25,15 @@ A senior-engineer level, production-minded crypto trading bot built in Python. D
 Built upon review of your existing repos (crypto-monitor for Solana monitoring/signals, polymarket-bot for prediction markets, solomon-trader) which demonstrate solid foundational work in market data and interaction. Great starting points — this new bot provides a robust framework you can extend or integrate with.
 
 ### Key Features (Current & Planned)
-- **Modular Architecture**: Data, Strategy, Risk, Execution layers (in progress).
-- **Paper Trading**: Realistic simulation (fees, slippage, virtual fills).
+- **Modular Architecture**: Data, Strategy, Risk, Execution layers (paper execution landed).
+- **Paper Trading**: Virtual cash, fees, and slippage via `PaperExecutor`. No exchange orders.
 - **Risk Management**: Position sizing, pre-trade gates, daily loss limits, circuit breakers.
 - **Pluggable Strategies**: Subclass `BaseStrategy` easily; registry for multi-strat configs.
-- **CCXT Powered**: 100+ exchanges, first-class testnet support.
+- **CCXT Powered**: Provider module exists; demo still uses synthetic bars.
 - **Config Driven**: .env + future YAML for symbols/strategies.
-- **Logging & Audit**: structlog for every decision and trade event.
-- **Backtesting Foundation**: Event-driven + vectorized paths.
-- Best practices: type hints, Pydantic models, small testable commits.
+- **Logging & Audit**: structlog planned; paper fills print a one-line audit for now.
+- **Backtesting Foundation**: Not wired yet.
+- Best practices: type hints, small testable commits. Risk and paper fills have stdlib tests.
 
 ## Quick Start (Paper Demo)
 
@@ -46,36 +47,33 @@ source .venv/bin/activate
 pip install -r requirements.txt
 
 cp .env.example .env
-# Edit .env — leave API keys blank for public data / paper mode
+# Edit .env — leave API keys blank. PAPER_TRADING must stay true.
 
-# Run the current demo (synthetic data + SMA signal)
+# Run the paper demo (synthetic data + SMA signal + virtual fill)
 PYTHONPATH=src python -m trading_bot.main --paper
+
+# Risk + paper executor tests (no pandas, no network)
+PYTHONPATH=src python -m unittest tests.test_paper_executor tests.test_risk_manager
 ```
 
-**Note**: The `src/` layout requires `PYTHONPATH=src` until we add `pyproject.toml` + editable install (coming in Phase 1/4).
+Omitting `--paper`, or setting `PAPER_TRADING=false`, exits 2. That is intentional.
+
+**Note**: The `src/` layout requires `PYTHONPATH=src` until we add `pyproject.toml` + editable install.
 
 See `docs/DEVELOPMENT_PLAN.md` for the full phased roadmap, architecture, and safety rules.
 
-## Current Status (Phase 1 Foundations — 2026-05-17)
+## Current Status (2026-10-07)
 
 **Completed**:
-- Phase 0 deep assessment: full exploration via GitHub tools, demo verified, gaps documented.
-- `docs/DEVELOPMENT_PLAN.md`: comprehensive plan with target architecture, safety layers, module specs, testing rules, and open questions.
-- `.gitignore`: protects `.env`, API secrets, state snapshots, logs, caches, test outputs.
-- `src/trading_bot/__init__.py` + `strategies/__init__.py`: proper package, version, clean exports.
-- All changes via small, auditable commits with clear messages.
+- Phase 0 docs and package layout.
+- Risk manager with fixed-fractional sizing and daily-loss gate.
+- Paper executor (fees, slippage, cash, no shorts) plus live-mode refusal.
+- Stdlib tests and a no-network GitHub workflow.
 
-**Demo still works** (verified post-changes):
-```
-PYTHONPATH=src python -m trading_bot.main --paper
-# Outputs: signal (buy/sell/hold), risk params, demo notice
-```
-
-**Next Immediate Work** (Phase 2 — incremental, paper-first):
-1. CCXT Data Provider (`data/ccxt_provider.py`) — real OHLCV + testnet
-2. Risk Manager — sizing + pre-trade validation
-3. Paper Executor — virtual positions, realistic fills
-4. Main loop refactor — continuous mode + logging
+**Not done / do not do in an agent run**:
+- Live exchange orders, API key use, or real capital.
+- Continuous loop and persisted paper ledger.
+- Wiring CCXT bars into the demo (still synthetic).
 
 **Strong risk disclaimers remain in place. Paper trading correctness is the #1 priority.**
 
@@ -90,8 +88,8 @@ These are good prototypes. The new Python bot offers stronger quant tools (panda
 ## Development Approach
 - **Incremental**: one focused module per commit + test + push + update docs.
 - **Safety first**: every financial primitive (sizing, risk gate, fill math) will have tests against known cases.
-- **Never live without approval**: the live executor will be heavily guarded and disabled by default.
+- **Never live without approval**: live execution stays disabled. Do not add an order path in this repo until a separate, explicit decision.
 
 See the full plan in [docs/DEVELOPMENT_PLAN.md](docs/DEVELOPMENT_PLAN.md).
 
-**Trade responsibly. Questions? Let's discuss in the next iteration.**
+**Trade responsibly.**

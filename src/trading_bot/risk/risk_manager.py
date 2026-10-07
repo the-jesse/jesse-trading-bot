@@ -8,13 +8,19 @@ Current implementation (v0.2):
 - Hard max exposure and daily loss circuit breaker
 - Per-trade risk cap + notional sanity
 - Clear rejection reasons for audit logs
+- Invalid size/price rejected before notional math
 
 Future: ATR volatility sizing, correlation matrix, Kelly, portfolio heat.
+Live execution is out of scope; callers must stay on the paper executor.
 """
 
 from dataclasses import dataclass, field
 from typing import Optional, Literal
-from datetime import datetime
+from datetime import datetime, timezone
+
+
+def _utcnow() -> datetime:
+    return datetime.now(timezone.utc)
 
 
 @dataclass
@@ -25,7 +31,7 @@ class RiskReport:
     adjusted_size: Optional[float] = None
     checks_passed: list[str] = field(default_factory=list)
     checks_failed: list[str] = field(default_factory=list)
-    timestamp: datetime = field(default_factory=datetime.utcnow)
+    timestamp: datetime = field(default_factory=_utcnow)
 
 
 @dataclass
@@ -41,13 +47,15 @@ class PositionSizer:
         max_position_pct: float = 0.10,
     ) -> float:
         """Return position size using fixed fractional risk."""
+        if equity <= 0 or entry_price <= 0:
+            return 0.0
         risk_amount = equity * risk_per_trade_pct
         risk_per_unit = abs(entry_price - stop_price)
         if risk_per_unit <= 0:
             return 0.0
         raw_size = risk_amount / risk_per_unit
         max_notional = equity * max_position_pct
-        max_size_by_notional = max_notional / entry_price if entry_price > 0 else 0
+        max_size_by_notional = max_notional / entry_price
         size = min(raw_size, max_size_by_notional)
         return max(0.0, round(size, 8))
 
@@ -68,12 +76,12 @@ class RiskManager:
         self.hard_max_exposure_pct = hard_max_exposure_pct
         self._daily_realized_pnl: float = 0.0
         self._daily_unrealized_pnl: float = 0.0
-        self._last_reset: datetime = datetime.utcnow()
+        self._last_reset: datetime = _utcnow()
 
     def reset_daily_pnl(self) -> None:
         self._daily_realized_pnl = 0.0
         self._daily_unrealized_pnl = 0.0
-        self._last_reset = datetime.utcnow()
+        self._last_reset = _utcnow()
 
     def update_daily_pnl(self, realized: float = 0.0, unrealized: float = 0.0) -> None:
         self._daily_realized_pnl += realized
@@ -120,6 +128,17 @@ class RiskManager:
         checks_failed: list[str] = []
         reason_parts: list[str] = []
 
+        if size <= 0 or entry_price <= 0 or equity <= 0:
+            checks_failed.append("invalid_order_params")
+            reason_parts.append("Size, entry_price, and equity must be positive")
+            return RiskReport(
+                approved=False,
+                reason="; ".join(reason_parts),
+                checks_failed=checks_failed,
+                checks_passed=checks_passed,
+            )
+        checks_passed.append("params_sane")
+
         if not self.check_daily_loss_limit(equity):
             checks_failed.append("daily_loss_limit")
             reason_parts.append(
@@ -165,12 +184,6 @@ class RiskManager:
                 checks_passed=checks_passed,
             )
         checks_passed.append("exposure_ok")
-
-        if size <= 0 or entry_price <= 0:
-            checks_failed.append("invalid_order_params")
-            reason_parts.append("Size and entry_price must be positive")
-            return RiskReport(approved=False, reason="; ".join(reason_parts), checks_failed=checks_failed)
-        checks_passed.append("params_sane")
 
         return RiskReport(
             approved=True,
