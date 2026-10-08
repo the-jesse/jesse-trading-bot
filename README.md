@@ -3,9 +3,9 @@
 **Professional, Modular Cryptocurrency Trading Bot**
 
 > ⚠️ **IMPORTANT DISCLAIMER** ⚠️
-> 
-> This software is provided **for educational, research, and demonstration purposes only**. 
-> 
+>
+> This software is provided **for educational, research, and demonstration purposes only**.
+>
 > - Cryptocurrency and prediction market trading involves **substantial risk of loss** and is not suitable for everyone.
 > - Past performance does not guarantee future results.
 > - You can lose **all your capital**.
@@ -21,18 +21,17 @@
 
 A senior-engineer level, production-minded crypto trading bot built in Python. Designed with clean architecture, strong risk management, pluggable strategies, paper trading simulation, and extensibility.
 
-Built upon review of your existing repos (crypto-monitor for Solana monitoring/signals, polymarket-bot for prediction markets, solomon-trader) which demonstrate solid foundational work in market data and interaction. Great starting points — this new bot provides a robust framework you can extend or integrate with.
+Built upon review of existing repos (crypto-monitor for Solana monitoring/signals, polymarket-bot for prediction markets, solomon-trader) which demonstrate solid foundational work in market data and interaction.
 
 ### Key Features (Current & Planned)
-- **Modular Architecture**: Data, Strategy, Risk, Execution layers (in progress).
-- **Paper Trading**: Realistic simulation (fees, slippage, virtual fills).
-- **Risk Management**: Position sizing, pre-trade gates, daily loss limits, circuit breakers.
-- **Pluggable Strategies**: Subclass `BaseStrategy` easily; registry for multi-strat configs.
-- **CCXT Powered**: 100+ exchanges, first-class testnet support.
-- **Config Driven**: .env + future YAML for symbols/strategies.
-- **Logging & Audit**: structlog for every decision and trade event.
-- **Backtesting Foundation**: Event-driven + vectorized paths.
-- Best practices: type hints, Pydantic models, small testable commits.
+- **Modular Architecture**: Data, Strategy, Risk, Execution layers (execution is paper-only).
+- **Paper Trading**: Demo loop on synthetic bars. Virtual fills are not implemented yet.
+- **Risk Management**: Position sizing, pre-trade gates, daily loss limits.
+- **Pluggable Strategies**: Subclass `BaseStrategy`; SMA crossover is the demo strategy.
+- **CCXT Powered**: provider module exists; demo path does not call the network.
+- **Config Driven**: `.env` for symbols and risk percents. Never commit secrets.
+- **Logging & Audit**: planned (structlog).
+- **Backtesting Foundation**: not started.
 
 ## Quick Start (Paper Demo)
 
@@ -40,58 +39,43 @@ Built upon review of your existing repos (crypto-monitor for Solana monitoring/s
 git clone https://github.com/the-jesse/jesse-trading-bot.git
 cd jesse-trading-bot
 
-# Recommended: use venv
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 
 cp .env.example .env
-# Edit .env — leave API keys blank for public data / paper mode
+# Leave API keys blank. PAPER_TRADING and DRY_RUN stay true.
 
-# Run the current demo (synthetic data + SMA signal)
 PYTHONPATH=src python -m trading_bot.main --paper
+python -m unittest tests/test_paper_gate.py
 ```
 
-**Note**: The `src/` layout requires `PYTHONPATH=src` until we add `pyproject.toml` + editable install (coming in Phase 1/4).
+`--live` exits 2. `resolve_mode()` never selects a live executor.
 
-See `docs/DEVELOPMENT_PLAN.md` for the full phased roadmap, architecture, and safety rules.
+See `docs/DEVELOPMENT_PLAN.md` for the phased roadmap. That plan is ahead of the code; trust this status section if they disagree.
 
-## Current Status (Phase 1 Foundations — 2026-05-17)
+## Current Status (2026-10-08)
 
-**Completed**:
-- Phase 0 deep assessment: full exploration via GitHub tools, demo verified, gaps documented.
-- `docs/DEVELOPMENT_PLAN.md`: comprehensive plan with target architecture, safety layers, module specs, testing rules, and open questions.
-- `.gitignore`: protects `.env`, API secrets, state snapshots, logs, caches, test outputs.
-- `src/trading_bot/__init__.py` + `strategies/__init__.py`: proper package, version, clean exports.
-- All changes via small, auditable commits with clear messages.
+**In tree on main (2026-05-17) plus this branch:**
+- Package layout, SMA demo, CCXT provider module, `RiskManager` / `PositionSizer`.
+- Paper-only gate in `src/trading_bot/safety.py`. Live money is refused even if `PAPER_TRADING=false` and an allow-live flag is set.
+- `check_trade` rejects non-positive size, price, or equity before notional math.
+- Stdlib tests in `tests/test_paper_gate.py` (no exchange, no keys).
 
-**Demo still works** (verified post-changes):
-```
-PYTHONPATH=src python -m trading_bot.main --paper
-# Outputs: signal (buy/sell/hold), risk params, demo notice
-```
+**Not done (do not treat README marketing as shipped):**
+- Paper executor (virtual positions, fees, slippage).
+- Continuous loop and persistent state.
+- Backtester, structlog, pyproject editable install.
+- Any live order path. Do not add one in this repo without a separate reviewed design.
 
-**Next Immediate Work** (Phase 2 — incremental, paper-first):
-1. CCXT Data Provider (`data/ccxt_provider.py`) — real OHLCV + testnet
-2. Risk Manager — sizing + pre-trade validation
-3. Paper Executor — virtual positions, realistic fills
-4. Main loop refactor — continuous mode + logging
-
-**Strong risk disclaimers remain in place. Paper trading correctness is the #1 priority.**
-
-## Your Existing Repos Review
-I reviewed your GitHub:
-- **crypto-monitor**: Node.js/TypeScript Solana pool monitor with signals, docs, roadmap. Excellent for on-chain alpha.
-- **polymarket-bot**: JS bot for Polymarket (prediction markets).
-- **solomon-trader**: Alpaca stock/crypto trading (paper live).
-
-These are good prototypes. The new Python bot offers stronger quant tools (pandas, indicators, backtesting) and structure for a full trading system. We can merge ideas, e.g., feed crypto-monitor signals into strategies or add Polymarket executor.
+## Safety
+- Paper trading correctness is the priority.
+- Do not commit `.env`, API keys, or exchange secrets.
+- Do not point this bot at live funds. solomon-trader Phase 7 stays gated separately.
 
 ## Development Approach
-- **Incremental**: one focused module per commit + test + push + update docs.
-- **Safety first**: every financial primitive (sizing, risk gate, fill math) will have tests against known cases.
-- **Never live without approval**: the live executor will be heavily guarded and disabled by default.
+- Incremental: one focused module per change, with tests.
+- Safety first: sizing and the risk gate have known-case tests.
+- Never live without an explicit human review, and not from this agent loop.
 
-See the full plan in [docs/DEVELOPMENT_PLAN.md](docs/DEVELOPMENT_PLAN.md).
-
-**Trade responsibly. Questions? Let's discuss in the next iteration.**
+See [docs/DEVELOPMENT_PLAN.md](docs/DEVELOPMENT_PLAN.md).
